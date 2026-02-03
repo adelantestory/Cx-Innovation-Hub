@@ -1,0 +1,350 @@
+openapi: 3.0.3
+info:
+  title: Taskify MVP - Comments API
+  description: API for managing task comments (create, edit, delete with permission controls)
+  version: 1.0.0
+  contact:
+    name: Taskify Team
+    email: dev@taskify.dev
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+  - url: https://api.taskify.dev
+    description: Production server (future)
+
+paths:
+  /tasks/{taskId}/comments:
+    post:
+      summary: Add comment to task
+      description: Create a new comment on a task. Author is determined from session context (current user).
+      operationId: createComment
+      tags:
+        - Comments
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: UUID of the task
+          schema:
+            type: string
+            format: uuid
+        - name: X-User-Id
+          in: header
+          required: true
+          description: Current user ID (simulates session auth for MVP)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+            example:
+              content: "Great progress on this task! Let me know if you need design feedback."
+      responses:
+        '201':
+          description: Successfully created comment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+              example:
+                id: "comment-123-uuid"
+                taskId: "task-456-uuid"
+                authorId: "user-789-uuid"
+                author:
+                  id: "user-789-uuid"
+                  name: "Alex Chen"
+                  email: "alex.chen@taskify.dev"
+                  role: "Engineer"
+                  avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
+                content: "Great progress on this task! Let me know if you need design feedback."
+                createdAt: "2026-01-25T14:30:00Z"
+                updatedAt: "2026-01-25T14:30:00Z"
+                editedAt: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /comments/{commentId}:
+    patch:
+      summary: Edit comment
+      description: Update comment content. Only the comment author can edit their own comments.
+      operationId: updateComment
+      tags:
+        - Comments
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          description: UUID of the comment
+          schema:
+            type: string
+            format: uuid
+        - name: X-User-Id
+          in: header
+          required: true
+          description: Current user ID (for permission check)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentUpdate'
+            example:
+              content: "Updated comment text with additional details."
+      responses:
+        '200':
+          description: Successfully updated comment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+              example:
+                id: "comment-123-uuid"
+                taskId: "task-456-uuid"
+                authorId: "user-789-uuid"
+                author:
+                  id: "user-789-uuid"
+                  name: "Alex Chen"
+                  email: "alex.chen@taskify.dev"
+                  role: "Engineer"
+                  avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
+                content: "Updated comment text with additional details."
+                createdAt: "2026-01-25T14:30:00Z"
+                updatedAt: "2026-01-25T14:45:00Z"
+                editedAt: "2026-01-25T14:45:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete comment
+      description: Delete a comment. Only the comment author can delete their own comments.
+      operationId: deleteComment
+      tags:
+        - Comments
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          description: UUID of the comment
+          schema:
+            type: string
+            format: uuid
+        - name: X-User-Id
+          in: header
+          required: true
+          description: Current user ID (for permission check)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Successfully deleted comment (no content returned)
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        name:
+          type: string
+          description: User display name
+        email:
+          type: string
+          format: email
+          description: User email address
+        role:
+          type: string
+          enum: [PM, Engineer]
+          description: User role
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Profile picture URL
+
+    Comment:
+      type: object
+      required:
+        - id
+        - taskId
+        - authorId
+        - content
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique comment identifier
+        taskId:
+          type: string
+          format: uuid
+          description: Parent task ID
+        authorId:
+          type: string
+          format: uuid
+          description: Comment author ID
+        author:
+          $ref: '#/components/schemas/User'
+          description: Comment author details
+        content:
+          type: string
+          minLength: 1
+          description: Comment text
+        createdAt:
+          type: string
+          format: date-time
+          description: Comment creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        editedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When comment was last edited (null if never edited)
+
+    CommentCreate:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: Comment text (cannot be empty)
+      example:
+        content: "This is a comment on the task"
+
+    CommentUpdate:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: Updated comment text (cannot be empty)
+      example:
+        content: "This is the updated comment text"
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type/code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          nullable: true
+          description: Additional error context
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            emptyContent:
+              summary: Empty comment content
+              value:
+                error: "VALIDATION_ERROR"
+                message: "Comment content cannot be empty"
+                details:
+                  field: "content"
+            tooLong:
+              summary: Comment too long
+              value:
+                error: "VALIDATION_ERROR"
+                message: "Comment content exceeds maximum length of 10000 characters"
+                details:
+                  field: "content"
+                  maxLength: 10000
+
+    Forbidden:
+      description: Permission denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "FORBIDDEN"
+            message: "You can only edit or delete your own comments"
+            details:
+              authorId: "user-123-uuid"
+              currentUserId: "user-456-uuid"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            taskNotFound:
+              summary: Task not found
+              value:
+                error: "NOT_FOUND"
+                message: "Task not found"
+            commentNotFound:
+              summary: Comment not found
+              value:
+                error: "NOT_FOUND"
+                message: "Comment not found"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "INTERNAL_ERROR"
+            message: "An unexpected error occurred"
+
+tags:
+  - name: Comments
+    description: Comment management operations with permission controls

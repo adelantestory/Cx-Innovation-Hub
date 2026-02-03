@@ -1,0 +1,128 @@
+// This is the Prisma schema file for Taskify MVP
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PM
+  Engineer
+}
+
+enum TaskStatus {
+  ToDo @map("To Do")
+  InProgress @map("In Progress")
+  InReview @map("In Review")
+  Done
+}
+
+enum MessageSender {
+  user
+  ai
+}
+
+model User {
+  id String @id @default(uuid())
+  name String @db.VarChar(100)
+  email String @unique @db.VarChar(255)
+  role UserRole
+  avatarUrl String? @map("avatar_url") @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  projectMemberships ProjectMember[]
+  assignedTasks Task[]
+  comments Comment[]
+
+  @@map("users")
+}
+
+model Project {
+  id String @id @default(uuid())
+  name String @db.VarChar(200)
+  description String? @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  members ProjectMember[]
+  tasks Task[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id String @id @default(uuid())
+  projectId String @map("project_id")
+  userId String @map("user_id")
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+model Task {
+  id String @id @default(uuid())
+  projectId String @map("project_id")
+  title String @db.VarChar(500)
+  description String? @db.Text
+  status TaskStatus @default(ToDo)
+  assignedTo String? @map("assigned_to")
+  orderIndex Int @map("order_index") @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User? @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+  comments Comment[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([projectId, status, orderIndex])
+  @@map("tasks")
+}
+
+model Comment {
+  id String @id @default(uuid())
+  taskId String @map("task_id")
+  authorId String @map("author_id")
+  content String @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  editedAt DateTime? @map("edited_at")
+
+  // Relations
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("comments")
+}
+
+model HelpMessage {
+  id String @id @default(uuid())
+  sessionId String @map("session_id") @db.VarChar(100)
+  sender MessageSender
+  content String @db.Text
+  screenContext String? @map("screen_context") @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("help_messages")
+}

@@ -1,0 +1,273 @@
+openapi: 3.0.3
+info:
+  title: Taskify MVP - Projects API
+  description: API for managing projects and retrieving project task lists
+  version: 1.0.0
+  contact:
+    name: Taskify Team
+    email: dev@taskify.dev
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+  - url: https://api.taskify.dev
+    description: Production server (future)
+
+paths:
+  /projects:
+    get:
+      summary: List all projects
+      description: Retrieve all 3 sample projects. Returns project metadata without tasks.
+      operationId: listProjects
+      tags:
+        - Projects
+      responses:
+        '200':
+          description: Successfully retrieved projects list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+              example:
+                projects:
+                  - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    name: "Mobile App Redesign"
+                    description: "Redesign of the iOS and Android apps"
+                    createdAt: "2026-01-20T10:00:00Z"
+                    updatedAt: "2026-01-25T14:30:00Z"
+                  - id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                    name: "Website Refresh"
+                    description: "Update marketing website with new branding"
+                    createdAt: "2026-01-20T10:00:00Z"
+                    updatedAt: "2026-01-24T09:15:00Z"
+                  - id: "c3d4e5f6-a7b8-9012-cdef-123456789012"
+                    name: "API v2 Migration"
+                    description: "Migrate legacy API to v2 architecture"
+                    createdAt: "2026-01-20T10:00:00Z"
+                    updatedAt: "2026-01-25T16:45:00Z"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /projects/{projectId}:
+    get:
+      summary: Get project by ID
+      description: Retrieve detailed information for a specific project
+      operationId: getProjectById
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: UUID of the project
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              example:
+                id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                name: "Mobile App Redesign"
+                description: "Redesign of the iOS and Android apps"
+                createdAt: "2026-01-20T10:00:00Z"
+                updatedAt: "2026-01-25T14:30:00Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /projects/{projectId}/tasks:
+    get:
+      summary: Get all tasks for a project
+      description: Retrieve all tasks for a specific project, organized by status column
+      operationId: getProjectTasks
+      tags:
+        - Projects
+        - Tasks
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: UUID of the project
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          description: Filter tasks by status column
+          schema:
+            type: string
+            enum: [To Do, In Progress, In Review, Done]
+      responses:
+        '200':
+          description: Successfully retrieved tasks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+              example:
+                tasks:
+                  - id: "task-123-uuid"
+                    projectId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    title: "Design new login screen"
+                    description: "Create mockups for mobile login"
+                    status: "In Progress"
+                    assignedTo: "user-456-uuid"
+                    orderIndex: 0
+                    createdAt: "2026-01-22T09:00:00Z"
+                    updatedAt: "2026-01-25T11:30:00Z"
+                  - id: "task-456-uuid"
+                    projectId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    title: "Implement API integration"
+                    description: null
+                    status: "To Do"
+                    assignedTo: null
+                    orderIndex: 0
+                    createdAt: "2026-01-23T14:20:00Z"
+                    updatedAt: "2026-01-23T14:20:00Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique project identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Project name
+        description:
+          type: string
+          nullable: true
+          description: Detailed project description
+        createdAt:
+          type: string
+          format: date-time
+          description: Project creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    Task:
+      type: object
+      required:
+        - id
+        - projectId
+        - title
+        - status
+        - orderIndex
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique task identifier
+        projectId:
+          type: string
+          format: uuid
+          description: Parent project ID
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Task title
+        description:
+          type: string
+          nullable: true
+          description: Detailed task description
+        status:
+          type: string
+          enum: [To Do, In Progress, In Review, Done]
+          description: Current Kanban column
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: Assigned user ID (null if unassigned)
+        orderIndex:
+          type: integer
+          minimum: 0
+          description: Order within status column (for drag-drop positioning)
+        createdAt:
+          type: string
+          format: date-time
+          description: Task creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type/code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          nullable: true
+          description: Additional error context
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "NOT_FOUND"
+            message: "Project not found"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "INTERNAL_ERROR"
+            message: "An unexpected error occurred"
+
+tags:
+  - name: Projects
+    description: Project management operations
+  - name: Tasks
+    description: Task management operations

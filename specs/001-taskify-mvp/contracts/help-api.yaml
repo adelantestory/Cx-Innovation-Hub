@@ -1,0 +1,324 @@
+openapi: 3.0.3
+info:
+  title: Taskify MVP - Help API
+  description: API for AI help assistant providing contextual guidance on Taskify features
+  version: 1.0.0
+  contact:
+    name: Taskify Team
+    email: dev@taskify.dev
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+  - url: https://api.taskify.dev
+    description: Production server (future)
+
+paths:
+  /help/ask:
+    post:
+      summary: Ask AI help assistant a question
+      description: Send a question to the AI help assistant and receive contextual guidance. Assistant is aware of the current screen context and conversation history.
+      operationId: askHelp
+      tags:
+        - Help
+      parameters:
+        - name: X-Session-Id
+          in: header
+          required: true
+          description: Browser session ID for conversation history (client-generated UUID, stored in localStorage)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HelpRequest'
+            examples:
+              basicQuestion:
+                summary: Basic how-to question
+                value:
+                  question: "How do I assign a task to someone?"
+                  screenContext: "kanban-board"
+              contextualQuestion:
+                summary: Contextual follow-up question
+                value:
+                  question: "Can I assign it to multiple people?"
+                  screenContext: "task-detail-modal"
+      responses:
+        '200':
+          description: Successfully received AI response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelpResponse'
+              examples:
+                simpleAnswer:
+                  summary: Answer to how-to question
+                  value:
+                    messageId: "msg-123-uuid"
+                    answer: "To assign a task, click on the task card to open the detail modal, then use the 'Assigned To' dropdown to select a team member from the list of 5 users."
+                    screenContext: "kanban-board"
+                    timestamp: "2026-01-25T15:30:00Z"
+                contextualAnswer:
+                  summary: Contextual follow-up answer
+                  value:
+                    messageId: "msg-456-uuid"
+                    answer: "No, in Taskify MVP each task can only be assigned to one person at a time. You can reassign a task to someone else at any time by opening the task and selecting a different user from the dropdown."
+                    screenContext: "task-detail-modal"
+                    timestamp: "2026-01-25T15:30:15Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /help/history:
+    get:
+      summary: Get conversation history
+      description: Retrieve the conversation history for the current session
+      operationId: getHelpHistory
+      tags:
+        - Help
+      parameters:
+        - name: X-Session-Id
+          in: header
+          required: true
+          description: Browser session ID
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of messages to return (default 50)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Successfully retrieved conversation history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelpHistory'
+              example:
+                sessionId: "session-789-uuid"
+                messages:
+                  - id: "msg-101-uuid"
+                    sender: "user"
+                    content: "How do I move a task?"
+                    screenContext: "kanban-board"
+                    timestamp: "2026-01-25T15:25:00Z"
+                  - id: "msg-102-uuid"
+                    sender: "ai"
+                    content: "You can move a task by clicking and dragging it to a different column on the Kanban board. The task will update to the new status (To Do, In Progress, In Review, or Done) when you drop it."
+                    screenContext: "kanban-board"
+                    timestamp: "2026-01-25T15:25:02Z"
+                  - id: "msg-103-uuid"
+                    sender: "user"
+                    content: "How do I assign a task to someone?"
+                    screenContext: "kanban-board"
+                    timestamp: "2026-01-25T15:30:00Z"
+                  - id: "msg-104-uuid"
+                    sender: "ai"
+                    content: "To assign a task, click on the task card to open the detail modal, then use the 'Assigned To' dropdown to select a team member from the list of 5 users."
+                    screenContext: "kanban-board"
+                    timestamp: "2026-01-25T15:30:02Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    HelpRequest:
+      type: object
+      required:
+        - question
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: User's question about Taskify features
+        screenContext:
+          type: string
+          enum: [user-selection, project-list, kanban-board, task-detail-modal]
+          nullable: true
+          description: Current screen context for contextual assistance
+      example:
+        question: "How do I comment on a task?"
+        screenContext: "kanban-board"
+
+    HelpResponse:
+      type: object
+      required:
+        - messageId
+        - answer
+        - timestamp
+      properties:
+        messageId:
+          type: string
+          format: uuid
+          description: Unique message identifier
+        answer:
+          type: string
+          description: AI assistant's response
+        screenContext:
+          type: string
+          enum: [user-selection, project-list, kanban-board, task-detail-modal]
+          nullable: true
+          description: Screen context when question was asked
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+      example:
+        messageId: "msg-456-uuid"
+        answer: "To comment on a task, click on the task card to open the detail modal. Scroll down to the comments section and type your comment in the text field. Click 'Add Comment' to save it."
+        screenContext: "kanban-board"
+        timestamp: "2026-01-25T16:00:00Z"
+
+    HelpMessage:
+      type: object
+      required:
+        - id
+        - sender
+        - content
+        - timestamp
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique message identifier
+        sender:
+          type: string
+          enum: [user, ai]
+          description: Who sent this message
+        content:
+          type: string
+          description: Message content
+        screenContext:
+          type: string
+          enum: [user-selection, project-list, kanban-board, task-detail-modal]
+          nullable: true
+          description: Screen context when message was sent
+        timestamp:
+          type: string
+          format: date-time
+          description: Message timestamp
+
+    HelpHistory:
+      type: object
+      required:
+        - sessionId
+        - messages
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: Browser session identifier
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/HelpMessage'
+          description: Conversation messages in chronological order
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type/code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          nullable: true
+          description: Additional error context
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            emptyQuestion:
+              summary: Empty question
+              value:
+                error: "VALIDATION_ERROR"
+                message: "Question cannot be empty"
+                details:
+                  field: "question"
+            questionTooLong:
+              summary: Question too long
+              value:
+                error: "VALIDATION_ERROR"
+                message: "Question exceeds maximum length of 1000 characters"
+                details:
+                  field: "question"
+                  maxLength: 1000
+            missingSessionId:
+              summary: Missing session ID
+              value:
+                error: "VALIDATION_ERROR"
+                message: "X-Session-Id header is required"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "NOT_FOUND"
+            message: "No conversation history found for this session"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "INTERNAL_ERROR"
+            message: "An unexpected error occurred"
+
+    ServiceUnavailable:
+      description: AI service temporarily unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "SERVICE_UNAVAILABLE"
+            message: "AI help assistant is temporarily unavailable. Please try again in a moment."
+            details:
+              retryAfter: 5
+              fallbackMessage: "For help with Taskify features, refer to the user guide at /docs/help"
+
+tags:
+  - name: Help
+    description: AI help assistant operations
+
+security:
+  - SessionId: []
+
+components:
+  securitySchemes:
+    SessionId:
+      type: apiKey
+      in: header
+      name: X-Session-Id
+      description: Browser session ID for conversation history tracking

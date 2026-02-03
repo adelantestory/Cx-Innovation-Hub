@@ -1,0 +1,343 @@
+openapi: 3.0.3
+info:
+  title: Taskify MVP - Tasks API
+  description: API for managing tasks (update status, assignment, etc.)
+  version: 1.0.0
+  contact:
+    name: Taskify Team
+    email: dev@taskify.dev
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+  - url: https://api.taskify.dev
+    description: Production server (future)
+
+paths:
+  /tasks/{taskId}:
+    get:
+      summary: Get task by ID
+      description: Retrieve detailed information for a specific task including comments
+      operationId: getTaskById
+      tags:
+        - Tasks
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: UUID of the task
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetail'
+              example:
+                id: "task-123-uuid"
+                projectId: "project-456-uuid"
+                title: "Design new login screen"
+                description: "Create mockups for mobile login flow with email and social auth options"
+                status: "In Progress"
+                assignedTo: "user-789-uuid"
+                assignee:
+                  id: "user-789-uuid"
+                  name: "Alex Chen"
+                  email: "alex.chen@taskify.dev"
+                  role: "Engineer"
+                  avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
+                orderIndex: 0
+                createdAt: "2026-01-22T09:00:00Z"
+                updatedAt: "2026-01-25T11:30:00Z"
+                comments:
+                  - id: "comment-123-uuid"
+                    taskId: "task-123-uuid"
+                    authorId: "user-456-uuid"
+                    author:
+                      id: "user-456-uuid"
+                      name: "Sarah Johnson"
+                      email: "sarah.johnson@taskify.dev"
+                      role: "PM"
+                      avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah"
+                    content: "Please include password reset flow in the mockups"
+                    createdAt: "2026-01-23T10:15:00Z"
+                    updatedAt: "2026-01-23T10:15:00Z"
+                    editedAt: null
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      summary: Update task
+      description: Update task properties (status, assignment, title, description). Used for drag-drop status changes and assignment updates.
+      operationId: updateTask
+      tags:
+        - Tasks
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: UUID of the task to update
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+            examples:
+              updateStatus:
+                summary: Update task status (drag-drop)
+                value:
+                  status: "In Progress"
+                  orderIndex: 2
+              assignTask:
+                summary: Assign task to user
+                value:
+                  assignedTo: "user-789-uuid"
+              updateDetails:
+                summary: Update task details
+                value:
+                  title: "Updated task title"
+                  description: "Updated description"
+      responses:
+        '200':
+          description: Successfully updated task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    Task:
+      type: object
+      required:
+        - id
+        - projectId
+        - title
+        - status
+        - orderIndex
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique task identifier
+        projectId:
+          type: string
+          format: uuid
+          description: Parent project ID
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Task title
+        description:
+          type: string
+          nullable: true
+          description: Detailed task description
+        status:
+          type: string
+          enum: [To Do, In Progress, In Review, Done]
+          description: Current Kanban column
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: Assigned user ID (null if unassigned)
+        orderIndex:
+          type: integer
+          minimum: 0
+          description: Order within status column (for drag-drop positioning)
+        createdAt:
+          type: string
+          format: date-time
+          description: Task creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    User:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        name:
+          type: string
+          description: User display name
+        email:
+          type: string
+          format: email
+          description: User email address
+        role:
+          type: string
+          enum: [PM, Engineer]
+          description: User role
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Profile picture URL
+
+    Comment:
+      type: object
+      required:
+        - id
+        - taskId
+        - authorId
+        - content
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique comment identifier
+        taskId:
+          type: string
+          format: uuid
+          description: Parent task ID
+        authorId:
+          type: string
+          format: uuid
+          description: Comment author ID
+        author:
+          $ref: '#/components/schemas/User'
+          description: Comment author details (populated when included)
+        content:
+          type: string
+          minLength: 1
+          description: Comment text
+        createdAt:
+          type: string
+          format: date-time
+          description: Comment creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        editedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When comment was last edited (null if never edited)
+
+    TaskDetail:
+      allOf:
+        - $ref: '#/components/schemas/Task'
+        - type: object
+          properties:
+            assignee:
+              allOf:
+                - $ref: '#/components/schemas/User'
+                - nullable: true
+              description: Assigned user details (null if unassigned)
+            comments:
+              type: array
+              items:
+                $ref: '#/components/schemas/Comment'
+              description: All comments on this task (ordered chronologically)
+
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Updated task title
+        description:
+          type: string
+          nullable: true
+          description: Updated task description
+        status:
+          type: string
+          enum: [To Do, In Progress, In Review, Done]
+          description: Updated status (for drag-drop)
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: Updated assigned user ID (null to unassign)
+        orderIndex:
+          type: integer
+          minimum: 0
+          description: Updated order within column (for drag-drop)
+      minProperties: 1
+      description: At least one property must be provided
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type/code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          nullable: true
+          description: Additional error context
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "VALIDATION_ERROR"
+            message: "Title cannot be empty"
+            details:
+              field: "title"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "NOT_FOUND"
+            message: "Task not found"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "INTERNAL_ERROR"
+            message: "An unexpected error occurred"
+
+tags:
+  - name: Tasks
+    description: Task management operations
