@@ -1,4 +1,4 @@
-import { DefaultAzureCredential, AzureCliCredential } from '@azure/identity';
+import { DefaultAzureCredential } from '@azure/identity';
 import { AIProjectClient } from '@azure/ai-projects';
 import { logger } from '../middleware/logger';
 
@@ -19,9 +19,10 @@ export async function initializeAzureAI() {
       throw new Error('AZURE_AI_ENDPOINT environment variable is not set');
     }
 
-    // Use AzureCliCredential explicitly to ensure it uses Azure CLI credentials
-    logger.info('[Azure AI] Using Azure CLI credentials');
-    const credential = new AzureCliCredential();
+    // Use DefaultAzureCredential for Docker compatibility
+    // Will try: environment variables -> managed identity -> Azure CLI (if available)
+    logger.info('[Azure AI] Using DefaultAzureCredential');
+    const credential = new DefaultAzureCredential();
     projectClient = new AIProjectClient(AZURE_AI_ENDPOINT, credential);
 
     logger.info('[Azure AI] Project client initialized');
