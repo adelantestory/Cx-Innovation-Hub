@@ -10,6 +10,7 @@ permissions:
   contents: read
   pull-requests: write
   checks: write
+  security-events: write
 
 jobs:
   lint:
@@ -136,3 +137,84 @@ jobs:
         with:
           name: frontend-coverage
           path: frontend/coverage
+
+  security-scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      # Build Backend Image
+      - name: Build Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./backend/Dockerfile
+          tags: taskify-backend:scan
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      # Scan Backend Image
+      - name: Run Trivy Scan on Backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: taskify-backend:scan
+          format: 'sarif'
+          output: 'trivy-backend.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail the build, just report
+      
+      - name: Upload Backend Scan Results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-backend.sarif'
+          category: 'backend-container'
+      
+      # Build Frontend Image
+      - name: Build Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./frontend/Dockerfile
+          tags: taskify-frontend:scan
+          load: true
+          build-args: |
+            VITE_API_URL=http://localhost:3000
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      # Scan Frontend Image
+      - name: Run Trivy Scan on Frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: taskify-frontend:scan
+          format: 'sarif'
+          output: 'trivy-frontend.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail the build, just report
+      
+      - name: Upload Frontend Scan Results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-frontend.sarif'
+          category: 'frontend-container'
+      
+      # Generate Summary
+      - name: Generate Security Scan Summary
+        if: always()
+        run: |
+          echo "## 🔒 Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Trivy scanned both backend and frontend containers for CRITICAL and HIGH severity vulnerabilities." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 View detailed results in the **Security** tab → **Code scanning alerts**" >> $GITHUB_STEP_SUMMARY
+
+          
