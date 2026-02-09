@@ -1,4 +1,4 @@
-# Cx Innovation Hub Development Guidelines (test)
+# Cx Innovation Hub Development Guidelines
 
 Auto-generated from all feature plans. Last updated: 2026-01-25
 
