@@ -59,12 +59,13 @@ services:
     build:
       context: .
       dockerfile: ./frontend/Dockerfile
+      args:
+        # Build-time argument for Vite (baked into JS bundle)
+        VITE_API_URL: http://localhost:3000
     container_name: taskify-frontend
     restart: unless-stopped
     ports:
       - "80:80"
-    environment:
-      VITE_API_URL: http://localhost:3000
     depends_on:
       - backend
     networks:
