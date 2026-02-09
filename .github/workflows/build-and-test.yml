@@ -79,9 +79,6 @@ jobs:
         working-directory: ./backend
         run: npm ci
 
-      - name: Copy shared types
-        run: cp -r shared ./backend/../shared
-
       - name: Generate Prisma Client
         working-directory: ./backend
         run: npx prisma generate
@@ -128,9 +125,6 @@ jobs:
       - name: Install Dependencies
         working-directory: ./frontend
         run: npm ci
-
-      - name: Copy Shared Types
-        run: cp -r shared ./frontend/../shared
 
       - name: Run Frontend Tests
         working-directory: ./frontend
