@@ -143,7 +143,7 @@ export default function HelpPanel({ open, onClose, screenContext }: HelpPanelPro
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <AutoAwesome sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
               <Typography variant="body2" color="text.secondary">
-                Hi! I'm your AI assistant. Ask me anything about managing your tasks and projects.
+                Hi! I&apos;m your AI assistant. Ask me anything about managing your tasks and projects.
               </Typography>
             </Box>
           )}
